@@ -1,4 +1,4 @@
-from __future__ import print_function, unicode_literals
+
 # -*- coding: utf8 -*-
 """
 protlib builds on the struct and SocketServer modules in the standard
@@ -17,12 +17,12 @@ import traceback
 from copy import deepcopy
 from select import select
 from warnings import warn
-from StringIO import StringIO
+from io import StringIO
 from time import mktime, time
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from logging import getLogger, Formatter, NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL
-from SocketServer import TCPServer, UDPServer, StreamRequestHandler, DatagramRequestHandler
+from socketserver import TCPServer, UDPServer, StreamRequestHandler, DatagramRequestHandler
 
 StringTypes = (type(b""), type(""))
 if sys.version_info[0] == 2:
@@ -52,7 +52,7 @@ AUTOSIZED = "AUTOSIZED"
 
 def _to_bytes(x):
     s = x if isinstance(x, type(b"")) else x.__str__()
-    return s.encode("utf8") if isinstance(s, unicode) else s
+    return s.encode("utf8") if isinstance(s, str) else s
 
 def _get_default(val):
     return val() if hasattr(val, "__call__") else deepcopy(val)
@@ -78,7 +78,7 @@ def _is_open(sock):
         return False
 
 def _inherit_docstrings(klass):
-    for name,field in klass.__dict__.iteritems():
+    for name,field in klass.__dict__.items():
         parent = getattr(klass.__bases__[0], name, None)
         if hasattr(field, "__call__") and not field.__doc__ and parent:
             field.__doc__ = parent.__doc__
@@ -158,7 +158,7 @@ class CType(object):
                        truncated at the first null byte.
         """
         self.always = self.default = self.length = self.encoding = self.enc_errors = self.full_string = None
-        extra = [name for name,val in settings.iteritems() if not hasattr(self, name)]
+        extra = [name for name,val in settings.items() if not hasattr(self, name)]
         if extra:
             warn("{0} settings do not include {1}".format(self.__class__.__name__, ", ".join(extra)), CWarning)
         
@@ -210,7 +210,7 @@ class CType(object):
             raise CError("cstruct not provided to resolve variable-length field with length attribute {0!r}".format(self.length))
         
         if self.length is AUTOSIZED:
-            field_name = dict((v,k) for k,v in cstruct.__class__.__dict__.iteritems() if getattr(v, "__hash__", None))[self]
+            field_name = dict((v,k) for k,v in cstruct.__class__.__dict__.items() if getattr(v, "__hash__", None))[self]
             field_val = getattr(cstruct, field_name)
             try:
                 return len(self.serialize(field_val, cstruct))
@@ -243,7 +243,7 @@ class CType(object):
             CString:  _to_bytes("{0}s".format(self.real_length(cstruct))),
             CUnicode: _to_bytes("{0}s".format(self.real_length(cstruct)))
         }
-        for ctype,format in formats.iteritems():
+        for ctype,format in formats.items():
             if isinstance(self, ctype):
                 return format
     
@@ -266,7 +266,7 @@ class CType(object):
         If you subclass one of the CType classes, you may need to
         override this method.
         """
-        for klass,converter in _converters.iteritems():
+        for klass,converter in _converters.items():
             if isinstance(self, klass):
                 return converter(x)
         raise CError("no converter found for {0}".format(self.__class__.__name__))
@@ -370,7 +370,7 @@ class CUnicode(CType):
             return CType.serialize(self, encoded, cstruct)
     
     def convert(self, x):
-        return x if isinstance(x, unicode) else unicode(_to_bytes(x), self.encoding, self.enc_errors)
+        return x if isinstance(x, str) else str(_to_bytes(x), self.encoding, self.enc_errors)
 
 @_inherit_docstrings
 class CArray(CType):
@@ -404,7 +404,7 @@ class CArray(CType):
         
         for param in ["default","always"]:
             if isinstance(length, int) and param not in params and getattr(self.ctype, param) is not None:
-                params[param] = [_get_default(getattr(self.ctype, param)) for i in xrange(length)]
+                params[param] = [_get_default(getattr(self.ctype, param)) for i in range(length)]
         
         CType.__init__(self, length=length, **params)
         
@@ -421,7 +421,7 @@ class CArray(CType):
     
     def parse(self, f, cstruct=None):
         f = _fileize(f)
-        return [self.ctype.parse(f, cstruct) for i in xrange(self.real_length(cstruct))]
+        return [self.ctype.parse(f, cstruct) for i in range(self.real_length(cstruct))]
     
     def serialize(self, xs, cstruct=None):
         length = self.real_length(cstruct)
@@ -432,7 +432,7 @@ class CArray(CType):
             if self.maybe is not None or self.ctype.maybe is not None:
                 default = self.maybe or []
                 if self.ctype.maybe is not None:
-                    default += [self.ctype.maybe for i in xrange(length - len(default))]
+                    default += [self.ctype.maybe for i in range(length - len(default))]
                 xs = xs + default[len(xs):]     # avoid += to not mutate the original list
             if len(xs) < length:
                 raise CError("CArray has length {0} and was only given {1} elements".format(length, len(xs)))
@@ -529,7 +529,7 @@ class CStruct(CType):
                 raise CError("{0} was given a value of {1!r} as a positional argument and {2!r} as a keyword argument".format(name, arg, values[name]))
             values[name] = arg
         
-        non_fields = [name for name,value in values.iteritems() if name not in field_names]
+        non_fields = [name for name,value in values.items() if name not in field_names]
         if non_fields:
             warn("{0} fields ({1}) do not include {2}".format(self.__class__.__name__, ", ".join(field_names), ", ".join(non_fields)), CWarning)
         
@@ -543,7 +543,7 @@ class CStruct(CType):
                 setattr(self, name, b"")
             elif isinstance(ctype, CArray) and isinstance(ctype.length, StringTypes) and ctype.ctype.maybe is not None \
                     and not isinstance(getattr(self, ctype.length), CType):
-                setattr(self, name, [_get_default(ctype.ctype.maybe) for i in xrange(ctype.real_length(self))])
+                setattr(self, name, [_get_default(ctype.ctype.maybe) for i in range(ctype.real_length(self))])
             
             if name in values:
                 setattr(self, name, values[name])   # set after setting default values to detect invalid defaults
@@ -563,12 +563,12 @@ class CStruct(CType):
             raise CError("CStruct classmethods may only be called on subclasses of CStruct")
         
         if "_fields" not in cls.__dict__:   # avoid hasattr because of subclasses
-            uninstantiated = [ctype for name,ctype in cls.__dict__.iteritems()
+            uninstantiated = [ctype for name,ctype in cls.__dict__.items()
                                     if type(ctype) is type and issubclass(ctype,CType)]
             if uninstantiated:
                 raise CError("Use {0}{2} instead of {0} when declaring a field in your {1} struct".format(uninstantiated[0].__name__, cls.__name__, ".get_type()" if issubclass(uninstantiated[0],CStruct) else "()"))
             
-            directly = [cstruct for name,cstruct in cls.__dict__.iteritems() if isinstance(cstruct, CStruct)]
+            directly = [cstruct for name,cstruct in cls.__dict__.items() if isinstance(cstruct, CStruct)]
             if directly:
                 raise CError("Use {0}.get_type() instead of {0}() when declaring a field in your {1} struct".format(directly[0].__class__.__name__, cls.__name__))
             
@@ -580,11 +580,11 @@ class CStruct(CType):
                     break
             
             if top is cls:
-                fields = [[name,ctype] for name,ctype in cls.__dict__.iteritems() if isinstance(ctype, CType)]
+                fields = [[name,ctype] for name,ctype in cls.__dict__.items() if isinstance(ctype, CType)]
                 fields.sort(key = lambda pair: CType.instances.index(pair[1]))
                 
                 positions = [(CType.instances.index(ctype),name,ctype) for name,ctype in fields]
-                for i in xrange(1, len(positions)):
+                for i in range(1, len(positions)):
                     if positions[i][0] == positions[i-1][0]:
                         warn("{0} and {1} were declared with the same {2} object; the order of such fields is undefined".format(positions[i-1][1], positions[i][1], positions[i][2].__class__.__name__), CWarning)
                         break
@@ -780,7 +780,7 @@ def hexdump(data):
     pad = b"0" if isinstance(hex(0), type(b"")) else "0"
     hexed = [hex(byte if isinstance(byte, int) else ord(byte))[2:].rjust(2, pad) for byte in data]
     lines = ["     0  1  2  3  4  5  6  7"]
-    for i in xrange(0, len(hexed), 8):
+    for i in range(0, len(hexed), 8):
         lines.append("%3i  " % i + " ".join(hexed[i:i+8]))
     return "\n".join(lines)
 
@@ -825,7 +825,7 @@ class Parser(object):
                 module = __import__(module)
             globs = module.__dict__
         
-        self.structs = [cstruct for name,cstruct in globs.iteritems()
+        self.structs = [cstruct for name,cstruct in globs.items()
                         if type(cstruct) is type and issubclass(cstruct,CStruct) and cstruct is not CStruct]
         self.codes = []
         for cstruct in self.structs:

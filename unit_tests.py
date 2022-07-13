@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division
+
 import os
 import sys
 import json
@@ -17,9 +17,9 @@ import protlib
 from protlib import *
 
 if sys.version_info[0] == 2:
-    from StringIO import StringIO as BytesIO
+    from io import StringIO as BytesIO
 else:
-    unicode = str
+    str = str
     from io import BytesIO
 
 warnings.simplefilter("error", CWarning)
@@ -457,13 +457,13 @@ class CTypeTests(TestCase):
         
         name = Name(first="andre", last="giant")
         self.assertTrue(isinstance(name.first, bytes))
-        self.assertTrue(isinstance(name.last, unicode))
+        self.assertTrue(isinstance(name.last, str))
         
         name = Name(first=5, last=5)
         self.assertEqual(name.last, "5")
         self.assertEqual(name.first, b"5")
         self.assertTrue(isinstance(name.first, bytes))
-        self.assertTrue(isinstance(name.last, unicode))
+        self.assertTrue(isinstance(name.last, str))
         
         s = CUnicode(length=6, encoding="utf8").serialize(andre)
         self.assertEqual(andre, Name(last=s).last)

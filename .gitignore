@@ -5,3 +5,7 @@ build/
 protlib.egg-info/
 setup.struct_log
 setup.error_log
+env/
+ecmind_protlib_transition.egg-info/
+dist/
+*.log

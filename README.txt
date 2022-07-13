@@ -1,3 +1,7 @@
+Fork with removed 2to3 setup flag.
+
+---
+
 protlib makes it easy to implement binary network protocols. It uses
 the struct and SocketServer modules from the standard library. It
 provides support for default and constant struct fields, nested structs, 
